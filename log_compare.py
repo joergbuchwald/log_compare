@@ -69,7 +69,7 @@ n_components = len(components)
 
 if n_components > 0:
     fig, axes = plt.subplots(
-        n_components, 1, figsize=(14, 5 * n_components), sharex=True
+        n_components, 1, figsize=(14, 6 * n_components), sharex=False
     )
 
     # Handle case where there's only one component (axes is not an array)
@@ -101,8 +101,10 @@ if n_components > 0:
         axes[comp_idx].set_yscale("log")
         axes[comp_idx].legend()
         axes[comp_idx].set_ylabel(r"$dx_x$ (component {})".format(comp))
+        axes[comp_idx].set_xlabel("time step / iteration number")
         axes[comp_idx].grid(True, alpha=0.3, which="both")
 
-    axes[-1].set_xlabel("time step / iteration number")
     plt.tight_layout()
+    # Add extra space between subplots
+    plt.subplots_adjust(hspace=0.5)
     plt.show()

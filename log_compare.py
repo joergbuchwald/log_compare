@@ -76,24 +76,52 @@ if n_components > 0:
     if n_components == 1:
         axes = [axes]
 
+    # Find all unique time_step/iteration combinations across all logfiles
+    all_time_steps = []
+    all_iteration_numbers = []
+    for i in range(len(logfiles)):
+        for comp in components:
+            dx_x = df_newton[i]["dx_x"].unstack("component")[comp].dropna()
+            all_time_steps.extend(dx_x.index.get_level_values("time_step").tolist())
+            all_iteration_numbers.extend(
+                dx_x.index.get_level_values("iteration_number").tolist()
+            )
+
+    # Create unique combinations and sort them
+    unique_combinations = sorted(set(zip(all_time_steps, all_iteration_numbers)))
+    n_points = len(unique_combinations)
+
     for comp_idx, comp in enumerate(components):
         for i, entry in enumerate(logfiles):
             # Filter data for this component
             dx_x = df_newton[i]["dx_x"].unstack("component")[comp].dropna()
 
-            # Get numeric x positions
-            x_positions = range(len(dx_x))
+            # Get the index for this logfile's data
+            logfile_time_steps = dx_x.index.get_level_values("time_step").tolist()
+            logfile_iteration_numbers = dx_x.index.get_level_values(
+                "iteration_number"
+            ).tolist()
+            logfile_pairs = list(zip(logfile_time_steps, logfile_iteration_numbers))
+
+            # Create x positions and y values, using NaN for missing points
+            x_positions = []
+            y_values = []
+            for pos, (ts, it) in enumerate(unique_combinations):
+                if (ts, it) in logfile_pairs:
+                    idx = logfile_pairs.index((ts, it))
+                    x_positions.append(pos)
+                    y_values.append(dx_x.iloc[idx])
+                else:
+                    x_positions.append(pos)
+                    y_values.append(np.nan)
 
             # Plot the data with log scale
-            axes[comp_idx].plot(x_positions, dx_x.values, label=entry)
+            axes[comp_idx].plot(
+                x_positions, y_values, label=entry, marker="o", markersize=3
+            )
 
-        # Set up two-row x-axis labels (time_step and iteration_number)
-        dx_x_ref = df_newton[0]["dx_x"].unstack("component")[comp].dropna()
-        time_steps = dx_x_ref.index.get_level_values("time_step").tolist()
-        iteration_numbers = dx_x_ref.index.get_level_values("iteration_number").tolist()
-
-        # Create two-row tick labels
-        tick_labels = [f"{ts}\n{it}" for ts, it in zip(time_steps, iteration_numbers)]
+        # Create two-row tick labels for all unique combinations
+        tick_labels = [f"{ts}\n{it}" for ts, it in unique_combinations]
 
         axes[comp_idx].set_xticks(range(len(tick_labels)))
         axes[comp_idx].set_xticklabels(tick_labels, rotation=0, fontsize=9)

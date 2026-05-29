@@ -114,7 +114,13 @@ def create_scrollable_plot_window():
 
     # Plot 5: Newton iteration dx_x for all components
     if len(df_newton) > 0:
-        components = df_newton[0]["dx_x"].index.get_level_values("component").unique()
+        # Check if 'component' level exists in the MultiIndex
+        dx_x_index = df_newton[0]["dx_x"].index
+        if "component" in dx_x_index.names:
+            components = dx_x_index.get_level_values("component").unique()
+        else:
+            # No component level - treat as single "default" component
+            components = ["default"]
         n_components = len(components)
 
         if n_components > 0:
@@ -123,7 +129,14 @@ def create_scrollable_plot_window():
             all_iteration_numbers = []
             for i in range(len(logfiles)):
                 for comp in components:
-                    dx_x = df_newton[i]["dx_x"].unstack("component")[comp].dropna()
+                    # Handle case where component level doesn't exist
+                    if (
+                        comp == "default"
+                        or "component" not in df_newton[i]["dx_x"].index.names
+                    ):
+                        dx_x = df_newton[i]["dx_x"].dropna()
+                    else:
+                        dx_x = df_newton[i]["dx_x"].unstack("component")[comp].dropna()
                     all_time_steps.extend(
                         dx_x.index.get_level_values("time_step").tolist()
                     )
@@ -142,7 +155,16 @@ def create_scrollable_plot_window():
                 if comp_idx + 5 <= 6:  # Stay within 6 subplots
                     ax = fig.add_subplot(6, 1, comp_idx + 5)
                     for i, entry in enumerate(logfiles):
-                        dx_x = df_newton[i]["dx_x"].unstack("component")[comp].dropna()
+                        # Handle case where component level doesn't exist
+                        if (
+                            comp == "default"
+                            or "component" not in df_newton[i]["dx_x"].index.names
+                        ):
+                            dx_x = df_newton[i]["dx_x"].dropna()
+                        else:
+                            dx_x = (
+                                df_newton[i]["dx_x"].unstack("component")[comp].dropna()
+                            )
                         logfile_time_steps = dx_x.index.get_level_values(
                             "time_step"
                         ).tolist()
@@ -176,6 +198,19 @@ def create_scrollable_plot_window():
                     ax.set_ylabel(r"$dx_x$ (component {})".format(comp))
                     ax.set_xlabel("time step / iteration number")
                     ax.grid(True, alpha=0.3, which="both")
+        else:
+            # No components to plot - add informative text
+            ax_no_comp = fig.add_subplot(6, 1, 5)
+            ax_no_comp.text(
+                0.5,
+                0.5,
+                "No Newton iteration data available",
+                transform=ax_no_comp.transAxes,
+                ha="center",
+                va="center",
+                fontsize=12,
+            )
+            ax_no_comp.axis("off")
 
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 

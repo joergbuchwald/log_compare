@@ -1,3 +1,5 @@
+#!/usr/bin/python
+# %%
 """
 Scrollable Time Series Plot for Multiple PVD Files
 ===================================================
@@ -9,9 +11,7 @@ same plot with different colors/styles.
 Uses Tkinter for a scrollable window containing all matplotlib plots.
 
 Usage:
-    python plot_pvd.py file1.pvd file2.pvd file3.pvd
-
-Modify the OBSERVATION_POINTS array at the top to set your observation locations.
+    python plot_pvd.py file1.pvd file2.pvd file3.pvd -x 6.67179 -y -851.812 -z 0.0
 """
 
 import argparse
@@ -20,26 +20,9 @@ from tkinter import ttk
 
 import matplotlib.pyplot as plt
 import numpy as np
+import ogstools as ot
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
-
-import ogstools as ot
-
-# %% [markdown]
-# # **Configuration Section**
-# # Modify these settings for your use case
-
-# Observation points - each row is a point with [x, y, z] coordinates
-OBSERVATION_POINTS = np.array(
-    [
-        [6.67179, -851.812, 0.0],  # Point 0
-        # [6.67179, -851.812, 0.0],  # Point 1
-        # [0.5, 0.0, 0.5],  # Point 2
-        # Add more points as needed, e.g.:
-        # [0.5, 0.0, 0.0],  # Point 3
-    ]
-)
-
 
 # %% [markdown]
 # # **Parse command line arguments for PVD/XDMF files**
@@ -52,7 +35,19 @@ parser.add_argument(
     nargs="+",
     help="Paths to the PVD or XDMF files to plot (multiple files supported)",
 )
+parser.add_argument(
+    "-x", type=float, required=True, help="X coordinate of observation point"
+)
+parser.add_argument(
+    "-y", type=float, required=True, help="Y coordinate of observation point"
+)
+parser.add_argument(
+    "-z", type=float, required=True, help="Z coordinate of observation point"
+)
 args = parser.parse_args()
+
+# Construct observation point from command-line arguments
+OBSERVATION_POINTS = np.array([[args.x, args.y, args.z]])
 
 # %% [markdown]
 # # **Load all mesh series files**
@@ -83,9 +78,7 @@ for file_idx, ms in enumerate(mesh_series_list):
     # Get variable names (excluding coordinates and time)
     point_data_keys = list(probe.point_data.keys())
     variables = [
-        var
-        for var in point_data_keys
-        if var.lower() not in ["x", "y", "z", "time"]
+        var for var in point_data_keys if var.lower() not in ["x", "y", "z", "time"]
     ]
 
     for var_name in variables:
@@ -181,9 +174,7 @@ def create_scrollable_plot_window():
     canvas.bind_all("<Button-5>", _on_mousewheel)  # Scroll down (Linux)
     canvas.bind_all("<MouseWheel>", _on_mousewheel)  # Windows/Mac
 
-    canvas_window = canvas.create_window(
-        (0, 0), window=scrollable_frame, anchor="nw"
-    )
+    canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
     canvas.configure(yscrollcommand=scrollbar.set)
 
     # Bind canvas resize to update scrollable frame width
@@ -198,9 +189,7 @@ def create_scrollable_plot_window():
 
     # Create matplotlib figure for all plots with constrained layout
     # Each variable gets num_points rows, each row is ~5 inches tall (more vertically stretched)
-    plot_height = (
-        5  # inches per observation point row (more vertically stretched)
-    )
+    plot_height = 5  # inches per observation point row (more vertically stretched)
     total_plots = num_var_components * num_points
     fig = Figure(
         figsize=(14, total_plots * plot_height),
@@ -226,9 +215,7 @@ def create_scrollable_plot_window():
 
     # Create axes for each variable
     axes_list = []
-    for var_idx, (var_name, comp_idx, display_name) in enumerate(
-        variable_components
-    ):
+    for var_idx, (var_name, comp_idx, display_name) in enumerate(variable_components):
         # Create subplots for this variable's observation points
         for point_idx in range(num_points):
             # Calculate subplot position (sharex between all)
@@ -245,10 +232,7 @@ def create_scrollable_plot_window():
             file_lines = []  # Track lines for legend
             file_labels_used = []  # Track labels for legend
             for file_idx, label in enumerate(file_labels):
-                if (
-                    var_name not in data_dict
-                    or file_idx not in data_dict[var_name]
-                ):
+                if var_name not in data_dict or file_idx not in data_dict[var_name]:
                     continue
 
                 file_info = data_dict[var_name][file_idx]
